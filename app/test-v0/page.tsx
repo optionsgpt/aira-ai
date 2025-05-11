@@ -56,40 +56,44 @@ export default function TestV0Page() {
         </div>
 
         <div className="h-[500px] overflow-auto p-4">
-          <TabsContent value="chat" className="m-0">
-            <div className="space-y-4">
-              {messages.map((message, index) => (
-                <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`flex items-start gap-2 max-w-[80%]`}>
-                    <div
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                        message.role === "user" ? "bg-primary text-white order-last" : "bg-muted"
-                      }`}
-                    >
-                      {message.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-                    </div>
-                    <div className={`p-3 rounded-lg ${message.role === "user" ? "bg-primary text-white" : "bg-muted"}`}>
-                      {message.content}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsContent value="chat" className="m-0">
+              <div className="space-y-4">
+                {messages.map((message, index) => (
+                  <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div className={`flex items-start gap-2 max-w-[80%]`}>
+                      <div
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                          message.role === "user" ? "bg-primary text-white order-last" : "bg-muted"
+                        }`}
+                      >
+                        {message.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                      </div>
+                      <div
+                        className={`p-3 rounded-lg ${message.role === "user" ? "bg-primary text-white" : "bg-muted"}`}
+                      >
+                        {message.content}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </TabsContent>
+                ))}
+              </div>
+            </TabsContent>
 
-          <TabsContent value="code" className="m-0">
-            <div className="bg-muted p-4 rounded-lg h-full">
-              <pre className="text-sm">
-                <code>console.log("Hello, world!");</code>
-              </pre>
-            </div>
-          </TabsContent>
+            <TabsContent value="code" className="m-0">
+              <div className="bg-muted p-4 rounded-lg h-full">
+                <pre className="text-sm">
+                  <code>console.log("Hello, world!");</code>
+                </pre>
+              </div>
+            </TabsContent>
 
-          <TabsContent value="preview" className="m-0">
-            <div className="border rounded-lg p-4 h-full flex items-center justify-center">
-              <p className="text-muted-foreground">Preview will be available soon</p>
-            </div>
-          </TabsContent>
+            <TabsContent value="preview" className="m-0">
+              <div className="border rounded-lg p-4 h-full flex items-center justify-center">
+                <p className="text-muted-foreground">Preview will be available soon</p>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
 
         <div className="border-t p-2">

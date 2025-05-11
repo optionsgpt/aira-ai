@@ -11,6 +11,7 @@ export default function DebugPage() {
   const [ollamaStatus, setOllamaStatus] = useState<string>("Checking...")
   const [logs, setLogs] = useState<string[]>([])
   const [testMessage, setTestMessage] = useState<string>("")
+  const [activeTab, setActiveTab] = useState("connections")
 
   const addLog = (message: string) => {
     setLogs((prev) => [...prev, `[${new Date().toISOString()}] ${message}`])
@@ -98,7 +99,7 @@ console.log(greet("World"));
     <div className="container mx-auto p-8">
       <h1 className="text-2xl font-bold mb-6">System Debug</h1>
 
-      <Tabs defaultValue="connections">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="connections">Connections</TabsTrigger>
           <TabsTrigger value="interface">Interface Tests</TabsTrigger>

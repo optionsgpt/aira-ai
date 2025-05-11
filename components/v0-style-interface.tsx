@@ -226,151 +226,155 @@ export default function V0StyleInterface() {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <TabsContent value="chat" className="h-full m-0 p-4">
-          <div className="flex-1 h-full overflow-hidden border shadow-sm rounded-lg">
-            <ScrollArea className="h-full p-4">
-              {messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                  <div className="rounded-full bg-primary/10 p-3 mb-4">
-                    <Bot className="h-6 w-6 text-primary" />
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "chat" | "code" | "preview")}>
+          <TabsContent value="chat" className="h-full m-0 p-4">
+            <div className="flex-1 h-full overflow-hidden border shadow-sm rounded-lg">
+              <ScrollArea className="h-full p-4">
+                {messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                    <div className="rounded-full bg-primary/10 p-3 mb-4">
+                      <Bot className="h-6 w-6 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Welcome to Aira AI</h3>
+                    <p className="text-muted-foreground max-w-md">
+                      Ask me anything! I can help with questions, summarize documents, analyze code, and more.
+                    </p>
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">Welcome to Aira AI</h3>
-                  <p className="text-muted-foreground max-w-md">
-                    Ask me anything! I can help with questions, summarize documents, analyze code, and more.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {messages.map((message) => (
-                    <div key={message.id} className="flex">
-                      <div
-                        className={cn(
-                          "flex items-start gap-3 max-w-[85%]",
-                          message.role === "user" ? "ml-auto" : "mr-auto",
-                        )}
-                      >
+                ) : (
+                  <div className="space-y-6">
+                    {messages.map((message) => (
+                      <div key={message.id} className="flex">
                         <div
                           className={cn(
-                            "flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border",
-                            message.role === "user"
-                              ? "bg-primary text-primary-foreground order-last"
-                              : "bg-muted text-muted-foreground",
+                            "flex items-start gap-3 max-w-[85%]",
+                            message.role === "user" ? "ml-auto" : "mr-auto",
                           )}
                         >
-                          {message.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-                        </div>
-                        <div
-                          className={cn(
-                            "p-4 rounded-lg shadow-sm",
-                            message.role === "user"
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-card border-primary/10",
-                          )}
-                        >
-                          <div className="prose dark:prose-invert prose-sm max-w-none">
-                            <ReactMarkdown
-                              components={{
-                                code({ node, inline, className, children, ...props }) {
-                                  const match = /language-(\w+)/.exec(className || "")
-                                  return !inline && match ? (
-                                    <div className="relative rounded-md overflow-hidden my-4">
-                                      <div
-                                        className={`p-4 overflow-x-auto ${
-                                          isDark ? "bg-[#1e1e1e]" : "bg-[#f5f5f5]"
-                                        } rounded-md`}
-                                      >
-                                        <div className="absolute right-2 top-2 flex gap-1">
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6 rounded-full bg-background/80 backdrop-blur-sm"
-                                            onClick={() => copyToClipboard(String(children))}
-                                          >
-                                            {isCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                                          </Button>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6 rounded-full bg-background/80 backdrop-blur-sm"
-                                            onClick={() => {
-                                              setSelectedCode(String(children))
-                                              setActiveTab("code")
-                                            }}
-                                          >
-                                            <Code className="h-3 w-3" />
-                                          </Button>
-                                        </div>
-                                        <code className={className} {...props}>
-                                          {String(children).replace(/\n$/, "")}
-                                        </code>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <code className={cn("px-1 py-0.5 rounded-md bg-muted", className)} {...props}>
-                                      {children}
-                                    </code>
-                                  )
-                                },
-                              }}
-                            >
-                              {message.content}
-                            </ReactMarkdown>
+                          <div
+                            className={cn(
+                              "flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border",
+                              message.role === "user"
+                                ? "bg-primary text-primary-foreground order-last"
+                                : "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            {message.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                           </div>
-                          {message.role === "assistant" && extractCodeBlocks(message.content).length > 0 && (
-                            <div className="mt-2 flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs"
-                                onClick={() => handleViewCode(message.content)}
+                          <div
+                            className={cn(
+                              "p-4 rounded-lg shadow-sm",
+                              message.role === "user"
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-card border-primary/10",
+                            )}
+                          >
+                            <div className="prose dark:prose-invert prose-sm max-w-none">
+                              <ReactMarkdown
+                                components={{
+                                  code({ node, inline, className, children, ...props }) {
+                                    const match = /language-(\w+)/.exec(className || "")
+                                    return !inline && match ? (
+                                      <div className="relative rounded-md overflow-hidden my-4">
+                                        <div
+                                          className={`p-4 overflow-x-auto ${
+                                            isDark ? "bg-[#1e1e1e]" : "bg-[#f5f5f5]"
+                                          } rounded-md`}
+                                        >
+                                          <div className="absolute right-2 top-2 flex gap-1">
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-6 w-6 rounded-full bg-background/80 backdrop-blur-sm"
+                                              onClick={() => copyToClipboard(String(children))}
+                                            >
+                                              {isCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-6 w-6 rounded-full bg-background/80 backdrop-blur-sm"
+                                              onClick={() => {
+                                                setSelectedCode(String(children))
+                                                setActiveTab("code")
+                                              }}
+                                            >
+                                              <Code className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                          <code className={className} {...props}>
+                                            {String(children).replace(/\n$/, "")}
+                                          </code>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <code className={cn("px-1 py-0.5 rounded-md bg-muted", className)} {...props}>
+                                        {children}
+                                      </code>
+                                    )
+                                  },
+                                }}
                               >
-                                <Code className="h-3 w-3 mr-1" />
-                                View Code
-                              </Button>
+                                {message.content}
+                              </ReactMarkdown>
                             </div>
-                          )}
+                            {message.role === "assistant" && extractCodeBlocks(message.content).length > 0 && (
+                              <div className="mt-2 flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={() => handleViewCode(message.content)}
+                                >
+                                  <Code className="h-3 w-3 mr-1" />
+                                  View Code
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                  <div ref={messagesEndRef} />
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="code" className="h-full m-0 p-4">
+            <div className="flex-1 h-full overflow-hidden border shadow-sm rounded-lg">
+              <div className="border-b p-2 flex justify-between items-center">
+                <h3 className="text-sm font-medium">Code Editor</h3>
+                <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => copyToClipboard(selectedCode)}>
+                  {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  <span>{isCopied ? "Copied" : "Copy"}</span>
+                </Button>
+              </div>
+              <ScrollArea className="h-[calc(100%-40px)]">
+                <pre
+                  className={`p-4 ${
+                    isDark ? "bg-[#1e1e1e] text-white" : "bg-[#f5f5f5] text-black"
+                  } h-full overflow-auto`}
+                >
+                  <code>{selectedCode}</code>
+                </pre>
+              </ScrollArea>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="preview" className="h-full m-0 p-4">
+            <div className="flex-1 h-full overflow-hidden border shadow-sm rounded-lg">
+              <div className="border-b p-2">
+                <h3 className="text-sm font-medium">Preview</h3>
+              </div>
+              <div className="h-[calc(100%-40px)] p-4 bg-white dark:bg-gray-900">
+                <div className="border rounded-lg h-full flex items-center justify-center">
+                  <p className="text-muted-foreground">Preview will be available soon</p>
                 </div>
-              )}
-            </ScrollArea>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="code" className="h-full m-0 p-4">
-          <div className="flex-1 h-full overflow-hidden border shadow-sm rounded-lg">
-            <div className="border-b p-2 flex justify-between items-center">
-              <h3 className="text-sm font-medium">Code Editor</h3>
-              <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => copyToClipboard(selectedCode)}>
-                {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                <span>{isCopied ? "Copied" : "Copy"}</span>
-              </Button>
-            </div>
-            <ScrollArea className="h-[calc(100%-40px)]">
-              <pre
-                className={`p-4 ${isDark ? "bg-[#1e1e1e] text-white" : "bg-[#f5f5f5] text-black"} h-full overflow-auto`}
-              >
-                <code>{selectedCode}</code>
-              </pre>
-            </ScrollArea>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="preview" className="h-full m-0 p-4">
-          <div className="flex-1 h-full overflow-hidden border shadow-sm rounded-lg">
-            <div className="border-b p-2">
-              <h3 className="text-sm font-medium">Preview</h3>
-            </div>
-            <div className="h-[calc(100%-40px)] p-4 bg-white dark:bg-gray-900">
-              <div className="border rounded-lg h-full flex items-center justify-center">
-                <p className="text-muted-foreground">Preview will be available soon</p>
               </div>
             </div>
-          </div>
-        </TabsContent>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <div className="p-4 border-t backdrop-blur-sm bg-background/50">
