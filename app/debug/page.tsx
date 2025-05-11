@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
 
 export default function DebugPage() {
   const [backendStatus, setBackendStatus] = useState<string>("Checking...")
-  const [apiStatus, setApiStatus] = useState<string>("Checking...")
+  const [backendDetails, setBackendDetails] = useState<any>(null)
   const [ollamaStatus, setOllamaStatus] = useState<string>("Checking...")
   const [logs, setLogs] = useState<string[]>([])
 
@@ -12,64 +13,93 @@ export default function DebugPage() {
     setLogs((prev) => [...prev, `[${new Date().toISOString()}] ${message}`])
   }
 
-  useEffect(() => {
-    // Check internal API
-    fetch("/api/test")
-      .then((res) => res.json())
-      .then((data) => {
-        setApiStatus("Working")
-        addLog("Internal API test successful")
-      })
-      .catch((err) => {
-        setApiStatus("Error")
-        addLog(`Internal API error: ${err.message}`)
-      })
+  const checkBackend = async () => {
+    try {
+      addLog("Testing backend connection...")
+      const response = await fetch("/api/test-backend")
+      const data = await response.json()
 
-    // Check backend
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3001"
-    fetch(`${backendUrl}/health`)
-      .then((res) => res.json())
-      .then((data) => {
+      if (data.success) {
         setBackendStatus("Connected")
-        addLog("Backend connection successful")
-      })
-      .catch((err) => {
-        setBackendStatus("Disconnected")
-        addLog(`Backend connection error: ${err.message}`)
-      })
+        setBackendDetails(data)
+        addLog(`Backend connection successful: ${JSON.stringify(data.backendResponse)}`)
+      } else {
+        setBackendStatus("Error")
+        setBackendDetails(data)
+        addLog(`Backend connection error: ${data.error}`)
+      }
+    } catch (error) {
+      setBackendStatus("Error")
+      addLog(`Backend test error: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
 
-    // Check Ollama
-    fetch("/api/status")
-      .then((res) => res.json())
-      .then((data) => {
-        setOllamaStatus(data.online ? "Online" : "Offline")
-        addLog(`Ollama status: ${data.online ? "Online" : "Offline"}`)
-      })
-      .catch((err) => {
-        setOllamaStatus("Error")
-        addLog(`Ollama status check error: ${err.message}`)
-      })
+  const checkOllama = async () => {
+    try {
+      addLog("Testing Ollama connection...")
+      const response = await fetch("/api/status")
+      const data = await response.json()
+
+      setOllamaStatus(data.online ? "Online" : "Offline")
+      addLog(`Ollama status: ${data.online ? "Online" : "Offline"}`)
+    } catch (error) {
+      setOllamaStatus("Error")
+      addLog(`Ollama status check error: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  useEffect(() => {
+    checkBackend()
+    checkOllama()
   }, [])
 
   return (
     <div className="container mx-auto p-8">
       <h1 className="text-2xl font-bold mb-6">System Debug</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="border rounded-lg p-4">
-          <h2 className="text-lg font-semibold mb-2">Internal API</h2>
-          <div className={`text-${apiStatus === "Working" ? "green" : "red"}-500 font-bold`}>{apiStatus}</div>
-        </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <div className="border rounded-lg p-4">
           <h2 className="text-lg font-semibold mb-2">Backend Server</h2>
-          <div className={`text-${backendStatus === "Connected" ? "green" : "red"}-500 font-bold`}>{backendStatus}</div>
+          <div
+            className={`font-bold ${
+              backendStatus === "Connected"
+                ? "text-green-500"
+                : backendStatus === "Checking..."
+                  ? "text-yellow-500"
+                  : "text-red-500"
+            }`}
+          >
+            {backendStatus}
+          </div>
           <div className="text-sm mt-2">URL: {process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3001"}</div>
+          {backendDetails && (
+            <div className="mt-2 text-xs">
+              <pre className="bg-gray-100 p-2 rounded overflow-auto max-h-40">
+                {JSON.stringify(backendDetails, null, 2)}
+              </pre>
+            </div>
+          )}
+          <Button onClick={checkBackend} className="mt-2" size="sm">
+            Recheck Backend
+          </Button>
         </div>
 
         <div className="border rounded-lg p-4">
           <h2 className="text-lg font-semibold mb-2">Ollama Status</h2>
-          <div className={`text-${ollamaStatus === "Online" ? "green" : "red"}-500 font-bold`}>{ollamaStatus}</div>
+          <div
+            className={`font-bold ${
+              ollamaStatus === "Online"
+                ? "text-green-500"
+                : ollamaStatus === "Checking..."
+                  ? "text-yellow-500"
+                  : "text-red-500"
+            }`}
+          >
+            {ollamaStatus}
+          </div>
+          <Button onClick={checkOllama} className="mt-2" size="sm">
+            Recheck Ollama
+          </Button>
         </div>
       </div>
 

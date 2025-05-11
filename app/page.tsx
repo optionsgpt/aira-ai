@@ -1,5 +1,5 @@
-import DashboardFixed from "@/components/dashboard-fixed"
+import V0Dashboard from "@/components/v0-dashboard"
 
 export default function Home() {
-  return <DashboardFixed />
+  return <V0Dashboard />
 }
