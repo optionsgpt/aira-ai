@@ -1,5 +1,5 @@
-import V0Dashboard from "@/components/v0-dashboard"
+import V0StyleDashboard from "@/components/v0-style-dashboard"
 
 export default function Home() {
-  return <V0Dashboard />
+  return <V0StyleDashboard />
 }
