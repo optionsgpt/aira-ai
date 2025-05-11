@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/components/ui/use-toast"
-import { Send, Sparkles, Bot, User, Code, Play, Copy, Check } from "lucide-react"
+import { Send, Sparkles, Bot, User, Code, Play, Copy, Check, AlertCircle } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { createStreamingFetch, checkBackendStatus } from "@/lib/api-utils"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function V0StyleInterface() {
   const [messages, setMessages] = useState<Array<{ role: string; content: string; id: string }>>([])
@@ -20,12 +22,37 @@ export default function V0StyleInterface() {
   const [activeTab, setActiveTab] = useState<"chat" | "code" | "preview">("chat")
   const [selectedCode, setSelectedCode] = useState<string>("")
   const [isCopied, setIsCopied] = useState(false)
+  const [backendStatus, setBackendStatus] = useState<"online" | "offline" | "checking">("checking")
+  const [connectionError, setConnectionError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
   const { theme } = useTheme()
   const isDark = theme === "dark"
+
+  // Check backend status on component mount
+  useEffect(() => {
+    const checkStatus = async () => {
+      setBackendStatus("checking")
+      const isOnline = await checkBackendStatus()
+      setBackendStatus(isOnline ? "online" : "offline")
+
+      if (!isOnline) {
+        setConnectionError("Backend server is not responding. Some features may not work properly.")
+      } else {
+        setConnectionError(null)
+      }
+    }
+
+    checkStatus()
+
+    // Set up periodic status checks
+    const interval = setInterval(checkStatus, 30000) // Check every 30 seconds
+
+    return () => clearInterval(interval)
+  }, [])
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -54,90 +81,84 @@ export default function V0StyleInterface() {
 
     // Set loading state
     setIsLoading(true)
+    setConnectionError(null)
 
     try {
-      // Call your backend API
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3001"}/api/ollama/chat`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messages: [...messages, userMessage],
-          }),
-        },
-      )
-
-      if (!response.ok) {
-        throw new Error("Failed to get response")
+      // Check backend status before sending request
+      const isOnline = await checkBackendStatus()
+      if (!isOnline) {
+        throw new Error("Backend server is not available. Please try again later.")
       }
-
-      // Process the response
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error("No reader available")
 
       let assistantMessage = ""
+      const tempMessageId = "current-" + Date.now()
 
-      while (true) {
-        const { done, value } = await reader.read()
-
-        if (done) break
-
-        // Convert the chunk to text
-        const chunk = new TextDecoder().decode(value)
-        const lines = chunk.split("\n\n")
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6)
-            if (data === "[DONE]") break
-
-            try {
-              const parsed = JSON.parse(data)
-              if (parsed.text) {
-                assistantMessage += parsed.text
-                // Update the assistant message in real-time
-                setMessages((prev) => {
-                  const newMessages = [...prev]
-                  const assistantIdx = newMessages.findIndex((m) => m.role === "assistant" && m.id === "current")
-
-                  if (assistantIdx >= 0) {
-                    newMessages[assistantIdx] = {
-                      ...newMessages[assistantIdx],
-                      content: assistantMessage,
-                    }
-                  } else {
-                    newMessages.push({
-                      role: "assistant",
-                      content: assistantMessage,
-                      id: "current",
-                    })
-                  }
-
-                  return newMessages
-                })
-              }
-            } catch (e) {
-              console.error("Error parsing JSON:", e)
-            }
-          }
-        }
-      }
-
-      // Finalize the assistant message
-      setMessages((prev) => {
-        const newMessages = prev.filter((m) => m.id !== "current")
-        newMessages.push({
+      // Add an initial empty assistant message that will be updated
+      setMessages((prev) => [
+        ...prev,
+        {
           role: "assistant",
-          content: assistantMessage,
-          id: Date.now().toString(),
-        })
-        return newMessages
-      })
+          content: "",
+          id: tempMessageId,
+        },
+      ])
+
+      await createStreamingFetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3001"}/api/ollama/chat`,
+        {
+          messages: [...messages, userMessage].map((m) => ({ role: m.role, content: m.content })),
+        },
+        (data) => {
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.text) {
+              assistantMessage += parsed.text
+
+              // Update the assistant message in real-time
+              setMessages((prev) => {
+                return prev.map((m) => (m.id === tempMessageId ? { ...m, content: assistantMessage } : m))
+              })
+            }
+          } catch (e) {
+            console.error("Error parsing JSON:", e)
+          }
+        },
+        (error) => {
+          console.error("Streaming error:", error)
+
+          // Update the message to show the error
+          setMessages((prev) => {
+            return prev.map((m) =>
+              m.id === tempMessageId
+                ? { ...m, content: "Sorry, I encountered an error while generating a response. Please try again." }
+                : m,
+            )
+          })
+
+          setConnectionError(`Failed to get response: ${error.message}`)
+
+          toast({
+            title: "Connection Error",
+            description: "Failed to communicate with the AI service. Retrying...",
+            variant: "destructive",
+          })
+
+          // Increment retry count
+          setRetryCount((prev) => prev + 1)
+        },
+        () => {
+          // On complete - finalize the message with a permanent ID
+          setMessages((prev) => {
+            return prev.map((m) => (m.id === tempMessageId ? { ...m, id: Date.now().toString() } : m))
+          })
+
+          setIsLoading(false)
+          setRetryCount(0) // Reset retry count on success
+        },
+      )
     } catch (error) {
       console.error("Error:", error)
+
       // Add an error message
       setMessages((prev) => [
         ...prev,
@@ -147,12 +168,15 @@ export default function V0StyleInterface() {
           id: Date.now().toString(),
         },
       ])
+
+      setConnectionError(error instanceof Error ? error.message : "Failed to communicate with AI service")
+
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to communicate with AI service",
         variant: "destructive",
       })
-    } finally {
+
       setIsLoading(false)
     }
   }
@@ -161,6 +185,7 @@ export default function V0StyleInterface() {
     setMessages([])
     setSelectedCode("")
     setActiveTab("chat")
+    setConnectionError(null)
   }
 
   const extractCodeBlocks = (content: string) => {
@@ -194,12 +219,44 @@ export default function V0StyleInterface() {
     })
   }
 
+  const retryConnection = async () => {
+    setConnectionError(null)
+    setBackendStatus("checking")
+
+    const isOnline = await checkBackendStatus()
+    setBackendStatus(isOnline ? "online" : "offline")
+
+    if (!isOnline) {
+      setConnectionError("Backend server is still not responding. Please check your connection.")
+
+      toast({
+        title: "Connection Failed",
+        description: "Could not connect to the backend server. Please check if it's running.",
+        variant: "destructive",
+      })
+    } else {
+      toast({
+        title: "Connection Restored",
+        description: "Successfully connected to the backend server.",
+        variant: "default",
+      })
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between border-b px-4 h-14 backdrop-blur-sm bg-background/50">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-primary" />
           <h2 className="font-semibold">Aira AI</h2>
+          {backendStatus === "offline" && (
+            <span className="text-xs text-red-500 px-2 py-0.5 bg-red-100 dark:bg-red-900/30 rounded-full">Offline</span>
+          )}
+          {backendStatus === "checking" && (
+            <span className="text-xs text-yellow-500 px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
+              Connecting...
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "chat" | "code" | "preview")}>
@@ -228,6 +285,19 @@ export default function V0StyleInterface() {
       <div className="flex-1 overflow-hidden">
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "chat" | "code" | "preview")}>
           <TabsContent value="chat" className="h-full m-0 p-4">
+            {connectionError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Connection Error</AlertTitle>
+                <AlertDescription className="flex flex-col gap-2">
+                  <p>{connectionError}</p>
+                  <Button variant="outline" size="sm" className="w-fit" onClick={retryConnection}>
+                    Retry Connection
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="flex-1 h-full overflow-hidden border shadow-sm rounded-lg">
               <ScrollArea className="h-full p-4">
                 {messages.length === 0 ? (
@@ -384,9 +454,14 @@ export default function V0StyleInterface() {
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question or type '/' for commands..."
+              placeholder={
+                backendStatus === "offline"
+                  ? "Backend is offline. Please check your connection..."
+                  : "Ask a question or type '/' for commands..."
+              }
               className="min-h-[60px] resize-none flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-3"
               rows={1}
+              disabled={backendStatus === "offline"}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault()
@@ -399,7 +474,7 @@ export default function V0StyleInterface() {
             <Button
               type="submit"
               size="icon"
-              disabled={isLoading || input.trim() === ""}
+              disabled={isLoading || input.trim() === "" || backendStatus === "offline"}
               className="transition-all duration-300 hover:bg-primary/90"
             >
               {isLoading ? (

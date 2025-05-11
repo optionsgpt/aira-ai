@@ -18,17 +18,33 @@ export async function GET() {
 
       if (response.ok) {
         // If backend is up, check Ollama status
-        const ollamaResponse = await fetch(`${BACKEND_API_URL}/api/ollama/models`)
-        return NextResponse.json({
-          online: ollamaResponse.ok,
-          backendStatus: "online",
-          ollamaStatus: ollamaResponse.ok ? "online" : "offline",
-        })
+        try {
+          const ollamaResponse = await fetch(`${BACKEND_API_URL}/api/ollama/models`, {
+            signal: AbortSignal.timeout(3000), // 3 second timeout for Ollama check
+          })
+
+          return NextResponse.json({
+            online: ollamaResponse.ok,
+            backendStatus: "online",
+            ollamaStatus: ollamaResponse.ok ? "online" : "offline",
+            timestamp: new Date().toISOString(),
+            details: ollamaResponse.ok ? await ollamaResponse.json() : { error: "Ollama not responding" },
+          })
+        } catch (ollamaError) {
+          return NextResponse.json({
+            online: false,
+            backendStatus: "online",
+            ollamaStatus: "offline",
+            error: ollamaError instanceof Error ? ollamaError.message : "Ollama connection failed",
+            timestamp: new Date().toISOString(),
+          })
+        }
       } else {
         return NextResponse.json({
           online: false,
           backendStatus: "error",
           error: `Backend error: ${response.status}`,
+          timestamp: new Date().toISOString(),
         })
       }
     } catch (fetchError) {
@@ -39,6 +55,7 @@ export async function GET() {
         online: false,
         backendStatus: "offline",
         error: fetchError instanceof Error ? fetchError.message : "Connection failed",
+        timestamp: new Date().toISOString(),
       })
     }
   } catch (error) {
@@ -46,6 +63,7 @@ export async function GET() {
     return NextResponse.json({
       online: false,
       error: error instanceof Error ? error.message : "Unknown error",
+      timestamp: new Date().toISOString(),
     })
   }
 }
