@@ -1,11 +1,5 @@
-import type { Metadata } from "next"
-import Dashboard from "@/components/dashboard"
-
-export const metadata: Metadata = {
-  title: "Aira AI - Intelligent Assistant",
-  description: "An advanced AI assistant that can process files, clone repositories, and analyze code",
-}
+import DashboardFixed from "@/components/dashboard-fixed"
 
 export default function Home() {
-  return <Dashboard />
+  return <DashboardFixed />
 }
